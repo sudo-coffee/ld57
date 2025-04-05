@@ -99,6 +99,7 @@ class.player = {}
 
 function class.player.new(x, y)
   local self = {}
+  self.image = love.graphics.newImage("assets/player/down.png")
   self.x = x
   self.y = y
   setmetatable(self, {__index = class.player})
@@ -106,7 +107,32 @@ function class.player.new(x, y)
 end
 
 function class.player:draw()
+  love.graphics.push("all")
+  love.graphics.setColor(1.0, 1.0, 1.0, 0.6)
+  love.graphics.draw(self.image, self.x - 8, self.y - 8)
+  love.graphics.pop()
+end
 
+function class.player:move(x, y)
+  self.x = self.x + x
+  self.y = self.y + y
+  if self.x > 0.5 and self.y > 0.5 then
+    self.image = love.graphics.newImage("assets/player/down_right.png")
+  elseif self.x > 0.5 and self.y < -0.5 then
+    self.image = love.graphics.newImage("assets/player/up_right.png")
+  elseif self.x < -0.5 and self.y > 0.5 then
+    self.image = love.graphics.newImage("assets/player/down_left.png")
+  elseif self.x < -0.5 and self.y < -0.5 then
+    self.image = love.graphics.newImage("assets/player/up_left.png")
+  elseif self.x > 0.5 then
+    self.image = love.graphics.newImage("assets/player/right.png")
+  elseif self.x < -0.5 then
+    self.image = love.graphics.newImage("assets/player/left.png")
+  elseif self.y > 0.5 then
+    self.image = love.graphics.newImage("assets/player/down.png")
+  elseif self.y < -0.5 then
+    self.image = love.graphics.newImage("assets/player/up.png")
+  end
 end
 
 

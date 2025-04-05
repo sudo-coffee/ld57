@@ -22,6 +22,7 @@ end
 -- \ --------- / -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
 function love.load()
+  love.graphics.setDefaultFilter("nearest")
   view.setDimensions(384, 384)
   reset()
 end
@@ -30,8 +31,8 @@ function love.draw()
   love.graphics.push("all")
   view.origin()
   level:draw(surface)
-  love.graphics.pop()
   player:draw()
+  love.graphics.pop()
 end
 
 function love.update()
@@ -45,4 +46,18 @@ function love.update()
       surface:uncarve()
     end
   end
+  local vector = {x=0, y=0}
+  if love.keyboard.isDown("w", "up") then
+    vector.y = vector.y - 1
+  end
+  if love.keyboard.isDown("a", "left") then
+    vector.x = vector.x - 1
+  end
+  if love.keyboard.isDown("s", "down") then
+    vector.y = vector.y + 1
+  end
+  if love.keyboard.isDown("d", "right") then
+    vector.x = vector.x + 1
+  end
+  player:move(vector.x, vector.y)
 end
