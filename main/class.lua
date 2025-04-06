@@ -17,16 +17,18 @@ class.surface._stencilShader = love.graphics.newShader([[
  }
 ]])
 class.surface._uncarveShader = love.graphics.newShader([[
+  uniform float speed;
   vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 __) {
     vec4 texcolor = Texel(tex, texture_coords);
-    texcolor.r /= 256.0;
+    texcolor.r *= speed;
     return texcolor * color;
  }
 ]])
 class.surface._carveShader = love.graphics.newShader([[
+  uniform float speed;
   vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 __) {
     vec4 texcolor = Texel(tex, texture_coords);
-    texcolor.r /= 256.0;
+    texcolor.r *= speed;
     return texcolor * color;
  }
 ]])
@@ -56,9 +58,10 @@ function class.surface:initParameters(depth)
   class.surface._stencilShader:send("depth", depth)
 end
 
-function class.surface:uncarve()
+function class.surface:uncarve(speed)
   love.graphics.push("all")
   love.graphics.setCanvas(self.canvas)
+  class.surface._uncarveShader:send("speed", speed)
   love.graphics.setShader(class.surface._uncarveShader)
   love.graphics.setBlendMode("subtract")
   love.graphics.setColor(1/255, 0, 0)
@@ -66,9 +69,10 @@ function class.surface:uncarve()
   love.graphics.pop()
 end
 
-function class.surface:carve(x, y)
+function class.surface:carve(x, y, speed)
   love.graphics.push("all")
   love.graphics.setCanvas(self.canvas)
+  class.surface._carveShader:send("speed", speed)
   love.graphics.setShader(class.surface._carveShader)
   love.graphics.setBlendMode("add")
   love.graphics.setColor(1/255, 0, 0)
@@ -96,43 +100,73 @@ end
 -- \ ------ / -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
 
 class.player = {}
+class.player._shader = love.graphics.newShader([[
+  vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 screen_coords) {
+    vec4 texcolor = Texel(tex, texture_coords);
+    float brightness = (texcolor.r + texcolor.g + texcolor.b) / 3.0;
+    float posX = screen_coords.x;
+    float posY = screen_coords.y;
+    if (mod(posX, 16) < 8 || mod(posY, 16) < 8) {
+      discard;
+    }
+    return texcolor * color;
+ }
+]])
 
 function class.player.new(x, y)
   local self = {}
-  self.image = love.graphics.newImage("assets/player/down.png")
+  self.playerImage = love.graphics.newImage("assets/player/player.png")
+  self.shellImage = love.graphics.newImage("assets/player/player_shell.png")
   self.x = x
   self.y = y
+  self.velX = 0.0
+  self.velY = 0.0
   setmetatable(self, {__index = class.player})
   return self
 end
 
 function class.player:draw()
+  local length = math.sqrt(self.velX ^ 2 + self.velY ^ 2)
+  if length ~= length or length == 0 then length = 1 end
   love.graphics.push("all")
-  love.graphics.setColor(1.0, 1.0, 1.0, 0.6)
-  love.graphics.draw(self.image, self.x - 8, self.y - 8)
+  local x = self.x + self.velX * 3.0 - 16
+  local y = self.y + self.velY * 3.0 - 16
+  love.graphics.setColor(1.0, 1.0, 1.0, 1.0)
+  love.graphics.draw(self.playerImage, x, y)
+  love.graphics.setColor(1.0, 1.0, 1.0, 0.2)
+  love.graphics.setShader(class.player._shader)
+  love.graphics.draw(self.shellImage, self.x - 16, self.y - 16)
   love.graphics.pop()
 end
 
 function class.player:move(x, y)
-  self.x = self.x + x
-  self.y = self.y + y
-  if self.x > 0.5 and self.y > 0.5 then
-    self.image = love.graphics.newImage("assets/player/down_right.png")
-  elseif self.x > 0.5 and self.y < -0.5 then
-    self.image = love.graphics.newImage("assets/player/up_right.png")
-  elseif self.x < -0.5 and self.y > 0.5 then
-    self.image = love.graphics.newImage("assets/player/down_left.png")
-  elseif self.x < -0.5 and self.y < -0.5 then
-    self.image = love.graphics.newImage("assets/player/up_left.png")
-  elseif self.x > 0.5 then
-    self.image = love.graphics.newImage("assets/player/right.png")
-  elseif self.x < -0.5 then
-    self.image = love.graphics.newImage("assets/player/left.png")
-  elseif self.y > 0.5 then
-    self.image = love.graphics.newImage("assets/player/down.png")
-  elseif self.y < -0.5 then
-    self.image = love.graphics.newImage("assets/player/up.png")
-  end
+  self.velX = self.velX / 1.2
+  self.velY = self.velY / 1.2
+  self.velX = math.min(0.8, math.max(-0.8, self.velX + x * 0.2))
+  self.velY = math.min(0.8, math.max(-0.8, self.velY + y * 0.2))
+  self.x = self.x + self.velX
+  self.y = self.y + self.velY
+  -- if self.x > 0.5 and self.y > 0.5 then
+  --   self.image = love.graphics.newImage("assets/player/down_right.png")
+  -- elseif self.x > 0.5 and self.y < -0.5 then
+  --   self.image = love.graphics.newImage("assets/player/up_right.png")
+  -- elseif self.x < -0.5 and self.y > 0.5 then
+  --   self.image = love.graphics.newImage("assets/player/down_left.png")
+  -- elseif self.x < -0.5 and self.y < -0.5 then
+  --   self.image = love.graphics.newImage("assets/player/up_left.png")
+  -- elseif self.x > 0.5 then
+  --   self.image = love.graphics.newImage("assets/player/right.png")
+  -- elseif self.x < -0.5 then
+  --   self.image = love.graphics.newImage("assets/player/left.png")
+  -- elseif self.y > 0.5 then
+  --   self.image = love.graphics.newImage("assets/player/down.png")
+  -- elseif self.y < -0.5 then
+  --   self.image = love.graphics.newImage("assets/player/up.png")
+  -- end
+  if self.x < 12 then self.x = 12 end
+  if self.y < 12 then self.y = 12 end
+  if self.x > 372 then self.x = 372 end
+  if self.y > 372 then self.y = 372 end
 end
 
 

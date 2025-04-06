@@ -36,16 +36,6 @@ function love.draw()
 end
 
 function love.update()
-  level:update()
-  if love.mouse.isDown(1) then
-    local x, y = view.getMousePosition()
-    surface:uncarve()
-    surface:carve(x, y)
-  elseif love.mouse.isDown(2) then
-    for _=1,8 do
-      surface:uncarve()
-    end
-  end
   local vector = {x=0, y=0}
   if love.keyboard.isDown("w", "up") then
     vector.y = vector.y - 1
@@ -60,4 +50,13 @@ function love.update()
     vector.x = vector.x + 1
   end
   player:move(vector.x, vector.y)
+  level:update()
+  local length = math.sqrt(player.velX ^ 2 + player.velY ^ 2)
+  if love.mouse.isDown(1) then
+    local x, y = view.getMousePosition()
+    surface:uncarve(0.5 / 255)
+    surface:carve(x, y, 1 / 255)
+  elseif love.mouse.isDown(2) then
+    surface:uncarve(8 / 255)
+  end
 end
