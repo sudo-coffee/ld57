@@ -33,10 +33,6 @@ class.surface._carveShader = love.graphics.newShader([[
  }
 ]])
 
--- 0.5, 0.4, 0.6
--- 0.546
--- 0.5, 
-
 function class.surface.new()
   local self = {}
   self.canvas = love.graphics.newCanvas(512, 512, {format="r16"})
@@ -106,7 +102,7 @@ class.player._shader = love.graphics.newShader([[
     float brightness = (texcolor.r + texcolor.g + texcolor.b) / 3.0;
     float posX = screen_coords.x;
     float posY = screen_coords.y;
-    if (mod(posX, 16) < 8 || mod(posY, 16) < 8) {
+    if (mod(posX, 8) < 4 || mod(posY, 8) < 4) {
       discard;
     }
     return texcolor * color;
@@ -115,6 +111,7 @@ class.player._shader = love.graphics.newShader([[
 
 function class.player.new(x, y)
   local self = {}
+  self.canvas = love.graphics.newCanvas(384, 384)
   self.playerImage = love.graphics.newImage("assets/player/player.png")
   self.shellImage = love.graphics.newImage("assets/player/player_shell.png")
   self.x = x
@@ -129,6 +126,9 @@ function class.player:draw()
   local length = math.sqrt(self.velX ^ 2 + self.velY ^ 2)
   if length ~= length or length == 0 then length = 1 end
   love.graphics.push("all")
+  love.graphics.reset()
+  love.graphics.setCanvas(self.canvas)
+  love.graphics.clear()
   local x = self.x + self.velX * 3.0 - 16
   local y = self.y + self.velY * 3.0 - 16
   love.graphics.setColor(1.0, 1.0, 1.0, 1.0)
@@ -137,13 +137,14 @@ function class.player:draw()
   love.graphics.setShader(class.player._shader)
   love.graphics.draw(self.shellImage, self.x - 16, self.y - 16)
   love.graphics.pop()
+  love.graphics.draw(self.canvas)
 end
 
 function class.player:move(x, y)
-  self.velX = self.velX / 1.2
-  self.velY = self.velY / 1.2
-  self.velX = math.min(0.8, math.max(-0.8, self.velX + x * 0.2))
-  self.velY = math.min(0.8, math.max(-0.8, self.velY + y * 0.2))
+  self.velX = self.velX / 1.1
+  self.velY = self.velY / 1.1
+  self.velX = math.min(0.8, math.max(-0.8, self.velX + x * 0.1))
+  self.velY = math.min(0.8, math.max(-0.8, self.velY + y * 0.1))
   self.x = self.x + self.velX
   self.y = self.y + self.velY
   -- if self.x > 0.5 and self.y > 0.5 then
@@ -184,7 +185,15 @@ function class.level.new(floors)
 end
 
 function class.level:_getFloor(surface, x, y)
-  -- WIP
+  local image = surface.canvas:newImageData() -- Slow!
+  local depth = image:getPixel(x + 64, y + 64)
+  local floor = nil
+  for i=1,#self.floors do
+    if self.floors[i].depth >= depth then
+      floor = self.floors[i]
+    end
+  end
+  return floor
 end
 
 function class.level:draw(surface)
@@ -207,10 +216,13 @@ end
 
 function class.level:update(surface, player)
   table.sort(self.floors, function(a, b) return a.depth > b.depth end)
-end
-
-function class.level:interract(surface, player)
-  -- WIP
+  for i=1,#self.floors do
+    self.floors[i]:update()
+  end
+  local playerFloor = self:_getFloor(surface, player.x, player.y)
+  if playerFloor then
+    playerFloor:updatePlayer(player)
+  end
 end
 
 

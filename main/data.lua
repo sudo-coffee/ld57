@@ -29,7 +29,7 @@ end
 function data.floor.blank:update(player)
 end
 
-function data.floor.blank:interact(player)
+function data.floor.blank:updatePlayer(player)
 end
 
 
@@ -54,7 +54,7 @@ end
 function data.floor.theend:update(player)
 end
 
-function data.floor.theend:interact(player)
+function data.floor.theend:updatePlayer(player)
 end
 
 
@@ -79,7 +79,7 @@ end
 function data.floor.gray:update(player)
 end
 
-function data.floor.gray:interact(player)
+function data.floor.gray:updatePlayer(player)
 end
 
 

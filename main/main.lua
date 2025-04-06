@@ -50,7 +50,7 @@ function love.update()
     vector.x = vector.x + 1
   end
   player:move(vector.x, vector.y)
-  level:update()
+  level:update(surface, player)
   local length = math.sqrt(player.velX ^ 2 + player.velY ^ 2)
   if love.mouse.isDown(1) then
     local x, y = view.getMousePosition()
