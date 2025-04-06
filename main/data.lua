@@ -1,4 +1,5 @@
 local class = require("class")
+local state = require("state")
 local data = {}
 data.floor = {}
 data.level = {}
@@ -26,10 +27,10 @@ function data.floor.blank:draw()
   love.graphics.pop()
 end
 
-function data.floor.blank:update(player)
+function data.floor.blank:update()
 end
 
-function data.floor.blank:updatePlayer(player)
+function data.floor.blank:updatePlayer(player, level)
 end
 
 
@@ -51,10 +52,10 @@ function data.floor.theend:draw()
   love.graphics.pop()
 end
 
-function data.floor.theend:update(player)
+function data.floor.theend:update()
 end
 
-function data.floor.theend:updatePlayer(player)
+function data.floor.theend:updatePlayer(player, level)
 end
 
 
@@ -76,10 +77,10 @@ function data.floor.gray:draw()
   love.graphics.pop()
 end
 
-function data.floor.gray:update(player)
+function data.floor.gray:update()
 end
 
-function data.floor.gray:updatePlayer(player)
+function data.floor.gray:updatePlayer(player, level)
 end
 
 
@@ -97,7 +98,7 @@ function data.getLevel(levelNumber)
     print("LD57: Level " .. levelNumber .. " does not exist.")
     table.insert(floors, data.floor.blank.new(1.0))
   end
-  local level = class.level.new(floors)
+  local level = class.level.new(floors, 0.0, 0.010)
   return level
 end
 

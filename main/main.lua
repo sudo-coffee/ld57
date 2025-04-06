@@ -1,5 +1,6 @@
 local view = require("utils.view")
 local data = require("data")
+local state = require("state")
 local class = require("class")
 local level = nil
 local player = nil
@@ -14,6 +15,7 @@ local function reset()
   level = data.getLevel(1)
   player = class.player.new(192, 192)
   surface = class.surface.new()
+  state.reset()
 end
 
 
@@ -54,9 +56,10 @@ function love.update()
   local length = math.sqrt(player.velX ^ 2 + player.velY ^ 2)
   if love.mouse.isDown(1) then
     local x, y = view.getMousePosition()
-    surface:uncarve(0.5 / 255)
-    surface:carve(x, y, 1 / 255)
+    surface:uncarve(0.5 / 255, level.minDepth)
+    surface:carve(x, y, 1 / 255, level.maxDepth)
   elseif love.mouse.isDown(2) then
-    surface:uncarve(8 / 255)
+    surface:uncarve(8 / 255, level.minDepth)
   end
+  surface:clamp(level.minDepth, level.maxDepth)
 end

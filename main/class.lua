@@ -1,4 +1,5 @@
 local class = {}
+local state = require("state")
 
 
 -- / ------- \ -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
@@ -18,7 +19,8 @@ class.surface._stencilShader = love.graphics.newShader([[
 ]])
 class.surface._uncarveShader = love.graphics.newShader([[
   uniform float speed;
-  vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 __) {
+  uniform float minDepth;
+  vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 _) {
     vec4 texcolor = Texel(tex, texture_coords);
     texcolor.r *= speed;
     return texcolor * color;
@@ -26,9 +28,19 @@ class.surface._uncarveShader = love.graphics.newShader([[
 ]])
 class.surface._carveShader = love.graphics.newShader([[
   uniform float speed;
-  vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 __) {
+  uniform float maxDepth;
+  vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 _) {
     vec4 texcolor = Texel(tex, texture_coords);
     texcolor.r *= speed;
+    return texcolor * color;
+ }
+]])
+class.surface._clampShader = love.graphics.newShader([[
+  uniform float minDepth;
+  uniform float maxDepth;
+  vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 _) {
+    vec4 texcolor = Texel(tex, texture_coords);
+    texcolor.r = min(max(texcolor.r, minDepth), maxDepth);
     return texcolor * color;
  }
 ]])
@@ -54,7 +66,7 @@ function class.surface:initParameters(depth)
   class.surface._stencilShader:send("depth", depth)
 end
 
-function class.surface:uncarve(speed)
+function class.surface:uncarve(speed, minDepth)
   love.graphics.push("all")
   love.graphics.setCanvas(self.canvas)
   class.surface._uncarveShader:send("speed", speed)
@@ -65,7 +77,7 @@ function class.surface:uncarve(speed)
   love.graphics.pop()
 end
 
-function class.surface:carve(x, y, speed)
+function class.surface:carve(x, y, speed, maxDepth)
   love.graphics.push("all")
   love.graphics.setCanvas(self.canvas)
   class.surface._carveShader:send("speed", speed)
@@ -75,6 +87,19 @@ function class.surface:carve(x, y, speed)
   for i=1,23 do
     love.graphics.circle("fill", x + 64, y + 64, 80 - i ^ 1.4)
   end
+  love.graphics.pop()
+end
+
+function class.surface:clamp(minDepth, maxDepth)
+  love.graphics.push("all")
+  local canvas = love.graphics.newCanvas(512, 512, {format="r16"})
+  love.graphics.setCanvas(canvas)
+  class.surface._clampShader:send("minDepth", minDepth)
+  class.surface._clampShader:send("maxDepth", maxDepth)
+  love.graphics.setShader(class.surface._clampShader)
+  love.graphics.draw(self.canvas)
+  love.graphics.setShader()
+  self.canvas = canvas
   love.graphics.pop()
 end
 
@@ -102,7 +127,7 @@ class.player._shader = love.graphics.newShader([[
     float brightness = (texcolor.r + texcolor.g + texcolor.b) / 3.0;
     float posX = screen_coords.x;
     float posY = screen_coords.y;
-    if (mod(posX, 8) < 4 || mod(posY, 8) < 4) {
+    if (mod(posX + 2, 8) < 4 || mod(posY + 2, 8) < 4) {
       discard;
     }
     return texcolor * color;
@@ -116,8 +141,11 @@ function class.player.new(x, y)
   self.shellImage = love.graphics.newImage("assets/player/player_shell.png")
   self.x = x
   self.y = y
+  self.visible = true
   self.velX = 0.0
   self.velY = 0.0
+  self.lastX = x
+  self.lastY = y
   setmetatable(self, {__index = class.player})
   return self
 end
@@ -131,8 +159,10 @@ function class.player:draw()
   love.graphics.clear()
   local x = self.x + self.velX * 3.0 - 16
   local y = self.y + self.velY * 3.0 - 16
-  love.graphics.setColor(1.0, 1.0, 1.0, 1.0)
-  love.graphics.draw(self.playerImage, x, y)
+  if self.visible then
+    love.graphics.setColor(1.0, 1.0, 1.0, 1.0)
+    love.graphics.draw(self.playerImage, x, y)
+  end
   love.graphics.setColor(1.0, 1.0, 1.0, 0.2)
   love.graphics.setShader(class.player._shader)
   love.graphics.draw(self.shellImage, self.x - 16, self.y - 16)
@@ -141,6 +171,8 @@ function class.player:draw()
 end
 
 function class.player:move(x, y)
+  self.lastX = self.x
+  self.lastY = self.y
   self.velX = self.velX / 1.1
   self.velY = self.velY / 1.1
   self.velX = math.min(0.8, math.max(-0.8, self.velX + x * 0.1))
@@ -177,9 +209,12 @@ end
 
 class.level = {}
 
-function class.level.new(floors)
+function class.level.new(floors, minDepth, maxDepth)
   local self = {}
   self.floors = floors
+  self.minDepth = minDepth
+  self.maxDepth = maxDepth
+  self.win = false
   setmetatable(self, {__index = class.level})
   return self
 end
@@ -221,7 +256,7 @@ function class.level:update(surface, player)
   end
   local playerFloor = self:_getFloor(surface, player.x, player.y)
   if playerFloor then
-    playerFloor:updatePlayer(player)
+    playerFloor:updatePlayer(player, self)
   end
 end
 
