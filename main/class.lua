@@ -328,7 +328,10 @@ function class.level:_sortFloors()
 end
 
 function class.level:draw(surface)
+  tempCanvas = love.graphics.newCanvas(384, 384)
   love.graphics.push("all")
+  love.graphics.reset()
+  love.graphics.setCanvas({tempCanvas, stencil=true})
   for i=1,#self.floors do
     self.floors[i]:draw()
     surface:initParameters(self.floors[i].depth)
@@ -345,6 +348,7 @@ function class.level:draw(surface)
   end
   love.graphics.setStencilTest()
   love.graphics.pop()
+  love.graphics.draw(tempCanvas)
 end
 
 function class.level:update(surface, player)
