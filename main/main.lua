@@ -39,6 +39,17 @@ function love.draw()
   love.graphics.pop()
 end
 
+function love.keypressed(key)
+  if key == "f11" then
+    love.window.setFullscreen(not love.window.getFullscreen())
+    return
+  end
+  if key == "escape" then
+    love.window.setFullscreen(false)
+    return
+  end
+end
+
 function love.update()
   local vector = {x=0, y=0}
   if love.keyboard.isDown("w", "up") then
