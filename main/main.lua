@@ -1,6 +1,5 @@
 local view = require("utils.view")
 local data = require("data")
-local state = require("state")
 local class = require("class")
 local level = nil
 local player = nil
@@ -13,9 +12,12 @@ local surface = nil
 
 local function reset()
   level = data.getLevel(1)
-  player = class.player.new(192, 192)
   surface = class.surface.new()
-  state.reset()
+  if not player then
+    player = class.player.new(192, 192, level.floors[1])
+    player:startAudio()
+  end
+  player:reset()
 end
 
 
@@ -54,12 +56,27 @@ function love.update()
   player:move(vector.x, vector.y)
   level:update(surface, player)
   local length = math.sqrt(player.velX ^ 2 + player.velY ^ 2)
-  if love.mouse.isDown(1) then
-    local x, y = view.getMousePosition()
-    surface:uncarve(0.5 / 255, level.minDepth)
-    surface:carve(x, y, 1 / 255, level.maxDepth)
+  local mouseX, mouseY = view.getMousePosition()
+  if player.raise > 0 then
+    surface:raise(player.raise)
+    player.raise = 0
+  end
+  if player.ascend then
+    surface:uncarve(64 / 255)
+  elseif player.descend then
+    surface:recarve(64 / 255)
+  elseif love.mouse.isDown(1) and love.mouse.isDown(2)
+      or love.mouse.isDown(3) then
+    surface:uncarve(16 / 255)
+  elseif love.mouse.isDown(1) then
+    surface:uncarve(0.5 / 255)
+    surface:carve(mouseX, mouseY, 1.5 / 255)
   elseif love.mouse.isDown(2) then
-    surface:uncarve(8 / 255, level.minDepth)
+    surface:uncarve(0.5 / 255)
+    surface:decarve(mouseX, mouseY, 1.0 / 255)
   end
   surface:clamp(level.minDepth, level.maxDepth)
+  if player.newgame then
+    reset()
+  end
 end

@@ -1,5 +1,4 @@
 local class = {}
-local state = require("state")
 
 
 -- / ------- \ -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
@@ -19,7 +18,14 @@ class.surface._stencilShader = love.graphics.newShader([[
 ]])
 class.surface._uncarveShader = love.graphics.newShader([[
   uniform float speed;
-  uniform float minDepth;
+  vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 _) {
+    vec4 texcolor = Texel(tex, texture_coords);
+    texcolor.r *= speed;
+    return texcolor * color;
+ }
+]])
+class.surface._decarveShader = love.graphics.newShader([[
+  uniform float speed;
   vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 _) {
     vec4 texcolor = Texel(tex, texture_coords);
     texcolor.r *= speed;
@@ -28,7 +34,6 @@ class.surface._uncarveShader = love.graphics.newShader([[
 ]])
 class.surface._carveShader = love.graphics.newShader([[
   uniform float speed;
-  uniform float maxDepth;
   vec4 effect(vec4 color, Image tex, vec2 texture_coords, vec2 _) {
     vec4 texcolor = Texel(tex, texture_coords);
     texcolor.r *= speed;
@@ -66,7 +71,7 @@ function class.surface:initParameters(depth)
   class.surface._stencilShader:send("depth", depth)
 end
 
-function class.surface:uncarve(speed, minDepth)
+function class.surface:uncarve(speed)
   love.graphics.push("all")
   love.graphics.setCanvas(self.canvas)
   class.surface._uncarveShader:send("speed", speed)
@@ -77,16 +82,49 @@ function class.surface:uncarve(speed, minDepth)
   love.graphics.pop()
 end
 
-function class.surface:carve(x, y, speed, maxDepth)
+function class.surface:recarve(speed)
+  love.graphics.push("all")
+  love.graphics.setCanvas(self.canvas)
+  class.surface._uncarveShader:send("speed", speed)
+  love.graphics.setShader(class.surface._uncarveShader)
+  love.graphics.setBlendMode("add")
+  love.graphics.setColor(1/255, 0, 0)
+  love.graphics.rectangle("fill", -64, -64, 512, 512)
+  love.graphics.pop()
+end
+
+function class.surface:carve(x, y, speed)
   love.graphics.push("all")
   love.graphics.setCanvas(self.canvas)
   class.surface._carveShader:send("speed", speed)
   love.graphics.setShader(class.surface._carveShader)
   love.graphics.setBlendMode("add")
   love.graphics.setColor(1/255, 0, 0)
-  for i=1,23 do
-    love.graphics.circle("fill", x + 64, y + 64, 80 - i ^ 1.4)
+  for i=1,48 do
+    love.graphics.circle("fill", x + 64, y + 64, 80 - (i / 6) ^ 2.1)
   end
+  love.graphics.pop()
+end
+
+function class.surface:decarve(x, y, speed)
+  love.graphics.push("all")
+  love.graphics.setCanvas(self.canvas)
+  class.surface._decarveShader:send("speed", speed)
+  love.graphics.setShader(class.surface._carveShader)
+  love.graphics.setBlendMode("subtract")
+  love.graphics.setColor(1/255, 0, 0)
+  for i=1,48 do
+    love.graphics.circle("fill", x + 64, y + 64, 80 - (i / 6) ^ 2.1)
+  end
+  love.graphics.pop()
+end
+
+function class.surface:raise(amount)
+  love.graphics.push("all")
+  love.graphics.setCanvas(self.canvas)
+  love.graphics.setBlendMode("subtract")
+  love.graphics.setColor(amount, 0, 0)
+  love.graphics.rectangle("fill", -64, -64, 512, 512)
   love.graphics.pop()
 end
 
@@ -134,20 +172,73 @@ class.player._shader = love.graphics.newShader([[
  }
 ]])
 
-function class.player.new(x, y)
+function class.player.new(x, y, floor)
   local self = {}
   self.canvas = love.graphics.newCanvas(384, 384)
   self.playerImage = love.graphics.newImage("assets/player/player.png")
   self.shellImage = love.graphics.newImage("assets/player/player_shell.png")
+  self.floor = floor
+  self.descend = false
+  self.newgame = false
+  self.ascend = false
+  self.raise = 0
   self.x = x
   self.y = y
-  self.visible = true
+  self.hidden = false
   self.velX = 0.0
   self.velY = 0.0
   self.lastX = x
   self.lastY = y
+  self.audioSourceA = love.audio.newSource(
+    "assets/audio/concertina_two.mp3",
+    "static"
+  )
+  self.audioSourceB = love.audio.newSource(
+    "assets/audio/recorder_two.mp3",
+    "static"
+  )
+  self.audioSourceC = love.audio.newSource(
+    "assets/audio/spoons_two.mp3",
+    "static"
+  )
+  self.audioSourceD = love.audio.newSource(
+    "assets/audio/spamjo_three.mp3",
+    "static"
+  )
+  self.audioSourceEnd = love.audio.newSource(
+    "assets/audio/theend_two.mp3",
+    "static"
+  )
   setmetatable(self, {__index = class.player})
   return self
+end
+
+function class.player:startAudio()
+  self.audioSourceA:setLooping(true)
+  self.audioSourceB:setLooping(true)
+  self.audioSourceC:setLooping(true)
+  self.audioSourceD:setLooping(true)
+  self.audioSourceEnd:setLooping(true)
+  self.audioSourceA:setVolume(0.0)
+  self.audioSourceB:setVolume(0.0)
+  self.audioSourceC:setVolume(0.0)
+  self.audioSourceD:setVolume(0.0)
+  self.audioSourceEnd:setVolume(0.0)
+  local success = love.audio.play(
+    self.audioSourceA,
+    self.audioSourceB,
+    self.audioSourceC,
+    self.audioSourceD,
+    self.audioSourceEnd
+  )
+end
+
+function class.player:reset()
+  self.descend = false
+  self.newgame = false
+  self.hidden = false
+  self.raise = 0
+  self.ascend = false
 end
 
 function class.player:draw()
@@ -159,7 +250,7 @@ function class.player:draw()
   love.graphics.clear()
   local x = self.x + self.velX * 3.0 - 16
   local y = self.y + self.velY * 3.0 - 16
-  if self.visible then
+  if not self.hidden then
     love.graphics.setColor(1.0, 1.0, 1.0, 1.0)
     love.graphics.draw(self.playerImage, x, y)
   end
@@ -216,6 +307,7 @@ function class.level.new(floors, minDepth, maxDepth)
   self.maxDepth = maxDepth
   self.win = false
   setmetatable(self, {__index = class.level})
+  self:_sortFloors()
   return self
 end
 
@@ -231,15 +323,21 @@ function class.level:_getFloor(surface, x, y)
   return floor
 end
 
+function class.level:_sortFloors()
+  table.sort(self.floors, function(a, b) return a.depth > b.depth end)
+end
+
 function class.level:draw(surface)
   love.graphics.push("all")
   for i=1,#self.floors do
     self.floors[i]:draw()
     surface:initParameters(self.floors[i].depth)
-    love.graphics.stencil(surface.shadowStencilFunction)
-    love.graphics.setStencilTest("greater", 0)
-    love.graphics.setColor(0.1, 0.1, 0.2, 0.2)
-    love.graphics.rectangle("fill", 0, 0, 384, 384)
+    if self.floors[i].drawShadow then
+      love.graphics.stencil(surface.shadowStencilFunction)
+      love.graphics.setStencilTest("greater", 0)
+      love.graphics.setColor(0.1, 0.1, 0.2, 0.2)
+      love.graphics.rectangle("fill", 0, 0, 384, 384)
+    end
     love.graphics.stencil(surface.floorStencilFunction)
     love.graphics.setStencilTest("greater", 0)
     love.graphics.setColor(1.0, 1.0, 1.0, 1.0)
@@ -250,14 +348,15 @@ function class.level:draw(surface)
 end
 
 function class.level:update(surface, player)
-  table.sort(self.floors, function(a, b) return a.depth > b.depth end)
+  self:_sortFloors()
   for i=1,#self.floors do
-    self.floors[i]:update()
+    self.floors[i]:update(player, self)
   end
-  local playerFloor = self:_getFloor(surface, player.x, player.y)
-  if playerFloor then
-    playerFloor:updatePlayer(player, self)
+  local newFloor = self:_getFloor(surface, player.x, player.y)
+  if newFloor then
+    player.floor = newFloor
   end
+  player.floor:updatePlayer(player, self)
 end
 
 
@@ -269,6 +368,7 @@ class.floor = {}
 
 function class.floor.new(depth)
   local self = {}
+  self.drawShadow = true
   self.depth = depth
   self.canvas = love.graphics.newCanvas(384, 384)
   setmetatable(self, {__index = class.floor})
